@@ -28,4 +28,23 @@ function getURLsFromHTML(body, baseURL) {
 	return urls;
 }
 
-export { normalizeURL, getURLsFromHTML };
+async function crawlPage(url) {
+	try {
+		const response = await fetch(url);
+		if (response.status >= 400) {
+			throw Error(`Request to ${url} failed with status code ${response.status}`);
+		}
+		const contentType = response.headers.get('Content-Type');
+		if (contentType.indexOf('text/html') === -1) {
+			throw Error(`Resource is not HTML`);
+		}
+		const html = await response.text()
+		console.log(html);
+	}
+	catch (err) {
+		console.log(err);
+	}
+
+}
+
+export { normalizeURL, getURLsFromHTML, crawlPage };
