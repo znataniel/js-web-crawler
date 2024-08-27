@@ -28,23 +28,49 @@ function getURLsFromHTML(body, baseURL) {
 	return urls;
 }
 
-async function crawlPage(url) {
+async function crawlPage(baseURL, currentURL = baseURL, pages = {}) {
+	const url = new URL(currentURL, baseURL);
+	const base = new URL(baseURL);
+	// console.log(`crawlPage(${url.href}) host:${url.host} - base: ${base.host}`);
+	if (url.host !== base.host) {
+		return pages;
+	}
+	const n_url = normalizeURL(url.href);
+	if (pages[n_url]) {
+		pages[n_url]++;
+		return pages;
+	}
+	pages[n_url] = 1;
+	// console.log(`----> about to fetch ${url.href}`);
+	let response
 	try {
-		const response = await fetch(url);
-		if (response.status >= 400) {
-			throw Error(`Request to ${url} failed with status code ${response.status}`);
-		}
-		const contentType = response.headers.get('Content-Type');
-		if (contentType.indexOf('text/html') === -1) {
-			throw Error(`Resource is not HTML`);
-		}
-		const html = await response.text()
-		console.log(html);
+		response = await fetch(url.href);
+	} catch (err) {
+		console.error(`${err.message} in ${url.href}`);
+		return pages;
 	}
-	catch (err) {
-		console.log(err);
+	if (response.status >= 400) {
+		console.error(`Request to ${url.href} failed with status code ${response.status}`);
+		return pages;
 	}
-
+	const contentType = response.headers.get('Content-Type');
+	if (!contentType || !contentType.includes('text/html')) {
+		console.error(`${url.href} resource is not HTML --- content-type: ${contentType}`);
+		return pages;
+	}
+	const html = await response.text();
+	const anchors = getURLsFromHTML(html, baseURL);
+	// console.log(`---anchors from ${url.href}\n${anchors}`);
+	for (const a of anchors) {
+		if (!pages[a]) {
+			pages = await crawlPage(baseURL, a, pages)
+		}
+		else {
+			pages[a]++;
+		}
+	}
+	return pages;
 }
+
 
 export { normalizeURL, getURLsFromHTML, crawlPage };
